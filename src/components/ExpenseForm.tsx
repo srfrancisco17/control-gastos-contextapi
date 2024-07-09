@@ -4,7 +4,7 @@ import { categories } from "../data/categories";
 import DatePicker from "react-date-picker";
 import "react-calendar/dist/Calendar.css";
 import "react-date-picker/dist/DatePicker.css";
-import { ChangeEvent, useState } from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 import { DraftExpense, Value } from "../types";
 import ErrorMessage from "./ErrorMessage";
 import { useBudget } from "../hooks/useBudget";
@@ -21,8 +21,20 @@ export default function ExpenseForm() {
   });
 
   const [error, setError] = useState('');
+  const [previosAmount, setPreviosAmount] = useState(0);
 
-  const {dispatch} = useBudget();
+  const {dispatch, state, remainingBudget} = useBudget();
+
+  useEffect(() => {
+
+    if (state.editingId) {
+      const editingExpense = state.expenses.filter(currentExpense => currentExpense.id === state.editingId)[0];
+
+      setExpense(editingExpense);
+      setPreviosAmount(editingExpense.amount); 
+    }
+
+  }, [state.editingId])
 
   const handleChange = (e: ChangeEvent<HTMLInputElement> | ChangeEvent<HTMLSelectElement>) => {
     const {name, value} = e.target;
@@ -53,7 +65,16 @@ export default function ExpenseForm() {
       return;
     }
 
-    dispatch({type: "add-expense", payload: {expense}});
+    if ( (expense.amount - previosAmount) > remainingBudget) {
+      setError("El gasto se pasa del presupuesto disponible")
+      return;
+    }
+
+    if (state.editingId){
+      dispatch({type: "update-expense", payload: {expense: {id: state.editingId, ...expense}}});
+    }else{
+      dispatch({type: "add-expense", payload: {expense}});
+    }
 
     setExpense({
       amount: 0,
@@ -69,7 +90,7 @@ export default function ExpenseForm() {
       <legend
         className="uppercase text-center text-2xl font-black border-b-4 border-blue-500 py-2"
       >
-        Nuevo gasto
+        {state.editingId ? "Guardar cambios" : "Nuevo Gasto"}
       </legend>
 
       {error && <ErrorMessage>{error}</ErrorMessage>}
@@ -116,7 +137,7 @@ export default function ExpenseForm() {
       <input 
         type="submit" 
         className="bg-blue-600 cursor-pointer w-full p-2 text-white uppercase font-bold rounded-lg"
-        value="Registrar gasto"
+        value={state.editingId ? "Guardar Cambios" : "Registrar Gasto"}
       />
 
     </form>
